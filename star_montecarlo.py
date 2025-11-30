@@ -14,7 +14,7 @@ STAR_EXEC = "STAR"
 THREADS = 5          # Number of concurrent STAR jobs
 STAR_THREADS = 1      # Threads per STAR process (--runThreadN)
 GENOME_DIR = "index"
-OUT_ROOT = "star_montecarlo_outputs"
+OUT_ROOT = "star_wrapper_test_bams1"
 
 # Parameter space derived from common STAR presets + extensions
 PARAMS = {
@@ -65,6 +65,7 @@ def run_star(run_id, config, args):
         "--genomeDir", GENOME_DIR,
         "--readFilesIn", args.input,
         "--outSAMunmapped", "Within",
+        "--outSAMattributes", "NH", "HI", "AS", "nM", "NM", "MD", "jM", "jI", "XS", "MC",
         "--outFileNamePrefix", out_prefix,
     ]
 

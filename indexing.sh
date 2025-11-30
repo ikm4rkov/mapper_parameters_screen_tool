@@ -1,4 +1,4 @@
-cript to build indexes for different mappers
+#script to build indexes for different mappers
 
 # Usage: ./build_indexes.sh <genome_file> <gtf_file> <output_prefix> <threads>
 

@@ -1,6 +1,4 @@
-#!/bin/bash
-# ================================
-# BWA-MEM2 Parameter Sweep Script
+#!/bin/bash: indent: command not found-MEM2 Parameter Sweep Script
 # ================================
 
 BWA_MEM2="bwa-mem2"
@@ -18,7 +16,7 @@ K_VALUES="5 10 15 19"
 L_VALUES="3 4 5"
 # B_VALUES="2 4"
 # O_VALUES="4 6"
-W_VALUES="1 25 50 100"
+#W_VALUES="1 25 50 100"
 
 # ================================
 # Usage
@@ -98,9 +96,9 @@ for raw in "${FASTQ_ARRAY[@]}"; do
   for T in $T_VALUES; do
     for K in $K_VALUES; do
       for L in $L_VALUES; do
-        for W in $W_VALUES; do
+       # for W in $W_VALUES; do
 
-          BWA_PARAMS="-k $K -T $T -L $L -w $W -v 1"
+          BWA_PARAMS="-k $K -T $T -L $L"
           if [ "$MARGI_MODE" -eq 1 ]; then
             BWA_PARAMS="$BWA_PARAMS -SP5M"
           fi
@@ -131,7 +129,7 @@ for raw in "${FASTQ_ARRAY[@]}"; do
           COUNT_TOTAL_UNIQ_IDS=$(samtools view "$OUTPUT_BAM" | cut -f1 | sort | uniq | wc -l)
 
           echo -e "${PARAMS_SUFFIX}\t${COUNT_UNIQ_MAPPED}\t${COUNT_TOTAL_UNIQ_IDS}" >> "$N_READS_LOG"
-        done
+        #done
       done
     done
   done

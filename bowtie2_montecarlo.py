@@ -13,7 +13,7 @@ BOWTIE2_EXEC = "bowtie2"
 THREADS = 5              # Number of concurrent bowtie2 jobs
 BOWTIE_THREADS = 1        # Threads per single Bowtie2 process (-p)
 INDEX = "Sscrofa11_1"
-OUT_ROOT = "bowtie2_montecarlo_outputs"
+OUT_ROOT = "bowtie2_wrapper_test_bams1"
 CONFIG_LOG_FILE = "all_sampled_configs.tsv"
 
 # Parameter space

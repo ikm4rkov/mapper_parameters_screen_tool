@@ -4,6 +4,7 @@
 !bwa_mapping.sh
 !hisat2_mapping.sh
 !indexing.sh
+!make_contacts_sample.sh
 !make_contacts_universal_notsample.sh
 !master_mapping.sh
 !master_until_cigar.sh

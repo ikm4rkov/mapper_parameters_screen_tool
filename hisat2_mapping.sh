@@ -1,4 +1,4 @@
-#!/bin/bash
+#/bin/bash
 
 # ==========================================
 # Default configuration
@@ -143,14 +143,13 @@ for raw in "${FASTQ_ARRAY[@]}"; do
 
                     echo "Running HISAT2 with params: $HISAT2_PARAMS" | tee -a "$LOG_FILE"
 
-                    if ! "$HISAT2" -x "$REFERENCE" -U "$FASTQ_FULLPATH" -k 100 --dta \
+                    "$HISAT2" -x "$REFERENCE" -U "$FASTQ_FULLPATH" -k 100 --dta \
                       $HISAT2_PARAMS -p "$THREADS" --summary-file "$LOG_FILE" 2>>"$LOG_FILE" \
-                      | samtools view -@ "$THREADS" -Sb - 2>>"$LOG_FILE" \
-                      | samtools sort -n -o "$OUTPUT_BAM" 2>>"$LOG_FILE"; then
-
-                      echo "Error: HISAT2 failed for $FASTQ_FULLPATH" | tee -a "$LOG_FILE" >&2
-                      continue
-                    fi
+                    | samtools view -bS -o "$OUTPUT_BAM"
+          
+                    #  echo "Error: HISAT2 failed for $FASTQ_FULLPATH" | tee -a "$LOG_FILE" >&2
+                    #  continue
+                    #fi
 
                     if [ ! -f "$OUTPUT_BAM" ]; then
                       echo "Error: BAM not created" | tee -a "$LOG_FILE" >&2
