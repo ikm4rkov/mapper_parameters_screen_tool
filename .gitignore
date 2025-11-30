@@ -11,15 +11,4 @@
 !sam2bam_and_sort.sh
 !star_montecarlo.py
 !scatterplots.py
-!reports/bwa_wrapper_new1_final_UniqueRNA_DNA.png
-!reports/bwa_wrapper_new1_final_UU_UM.png
-!reports/bwa_wrapper_new1_final.tsv
-!reports/star_wrapper_new1_final_UniqueRNA_DNA.png
-!reports/star_wrapper_new1_final_UU_UM.png
-!reports/star_wrapper_new1_final.tsv
-!reports/bowtie2_wrapper_new1_final_UniqueRNA_DNA.png
-!reports/bowtie2_wrapper_new1_final_UU_UM.png
-!reports/bowtie2_wrapper_new1_final.tsv
-!reports/hisat2_wrapper_new1_final_UniqueRNA_DNA.png
-!reports/hisat2_wrapper_new1_final_UU_UM.png
-!reports/hisat2_wrapper_new1_final.tsv
+!reports/
