@@ -11,12 +11,11 @@ import random
 # ============================================================
 
 STAR_EXEC = "STAR"
-THREADS = 5          # Number of concurrent STAR jobs
-STAR_THREADS = 1      # Threads per STAR process (--runThreadN)
+THREADS = 5
+STAR_THREADS = 1
 GENOME_DIR = "index"
-OUT_ROOT = "star_wrapper_test_bams1"
 
-# Parameter space derived from common STAR presets + extensions
+# Parameter space
 PARAMS = {
     "--scoreGap": [-10, -5, 0, 5, 10],
     "--scoreGapNoncan": [-16, -12, -8, -4, 0],
@@ -35,62 +34,80 @@ PARAMS = {
 }
 
 # ============================================================
-# Helper functions
+# Helpers
 # ============================================================
 
 def sample_random_config(seed=None):
-    """Sample a random STAR parameter configuration."""
     if seed is not None:
         random.seed(seed)
-    return {param: random.choice(values) for param, values in PARAMS.items()}
+    return {param: random.choice(vals) for param, vals in PARAMS.items()}
 
 
-def build_output_dir(run_id, part):
-    """Create grouped output directory (10 runs per folder)."""
-    group = run_id // 10 + 1
-    dir_name = os.path.join(OUT_ROOT, f"{group}{part}")
-    Path(dir_name).mkdir(parents=True, exist_ok=True)
-    return dir_name
+def sanitize(v: str) -> str:
+    return str(v).replace(",", "-").replace("=", "-").replace(".", "_")
+
+
+def make_dirname(cfg: dict) -> str:
+    parts = []
+    for k, v in cfg.items():
+        parts.append(f"{k.strip('-')}{sanitize(v)}")
+    return "_".join(parts)
 
 
 def run_star(run_id, config, args):
-    """Run a single STAR alignment with given configuration."""
-    out_dir = build_output_dir(run_id, args.part)
-    prefix = f"run_{run_id:04d}_"
-    out_prefix = os.path.join(out_dir, prefix)
+    # Output directory name composed of parameters
+    dir_name = make_dirname(config)
+    out_dir = Path(args.output_root) / dir_name
+    out_dir.mkdir(parents=True, exist_ok=True)
 
+    # temp prefix required by STAR
+    tmp_prefix = str(out_dir / "tmp_")
+
+    # final output paths
+    sam_out = out_dir / "output.sam"
+    log_file = out_dir / "log.txt"
+    config_file = out_dir / "config.txt"
+
+    # base STAR command
     cmd = [
         STAR_EXEC,
         "--runThreadN", str(args.star_threads),
         "--genomeDir", GENOME_DIR,
         "--readFilesIn", args.input,
+        "--outFileNamePrefix", tmp_prefix,
+        "--outSAMtype", "SAM",
         "--outSAMunmapped", "Within",
         "--outSAMattributes", "NH", "HI", "AS", "nM", "NM", "MD", "jM", "jI", "XS", "MC",
-        "--outFileNamePrefix", out_prefix,
     ]
 
-    # Add sampled parameters
-    for param, value in config.items():
-        cmd.extend([param, str(value)])
+    # add sampled parameters
+    for p, v in config.items():
+        cmd.extend([p, str(v)])
 
-    # --------------------------------------------------------
-    # MARGI mode: add STAR-specific flags
-    # --------------------------------------------------------
+    # optional MARGI mode
     if args.margi == 1:
         cmd.extend([
             "--chimOutType", "Junctions",
             "--chimSegmentMin", "5"
         ])
 
-    log_file = os.path.join(out_dir, f"{prefix}log.txt")
+    # write config file
+    with open(config_file, "w") as cf:
+        for p, v in config.items():
+            cf.write(f"{p} {v}\n")
 
-    # Run STAR and log output
+    # run STAR
     with open(log_file, "w") as log:
         subprocess.run(cmd, stdout=log, stderr=log)
 
+    # identify STAR SAM (it ends with "Aligned.out.sam")
+    generated_sam = Path(tmp_prefix + "Aligned.out.sam")
+    if generated_sam.exists():
+        generated_sam.rename(sam_out)
+
 
 # ============================================================
-# Main logic
+# Main
 # ============================================================
 
 def main():
@@ -100,94 +117,57 @@ def main():
         description="Run Monte Carlo STAR alignments with random parameters."
     )
 
-    parser.add_argument("--input", type=str, required=True,
-                        help="Input reads file path")
-    parser.add_argument("--part", type=str, default="rna",
-                        help="Suffix for output directories (e.g. rna, dna)")
-    parser.add_argument("--seed", type=int,
-                        help="Random seed for reproducibility")
-    parser.add_argument("--config-log", type=str,
-                        default="generated_parameters.json",
-                        help="Output file to log all sampled configs")
-    parser.add_argument("--index", type=str, default=None,
-                        help="Override genome directory (default: index)")
-    parser.add_argument("--threads", type=int, default=None,
-                        help="Number of parallel STAR runs")
-    parser.add_argument("--star-threads", type=int, default=None,
-                        help="Threads per STAR process (default=1)")
-    parser.add_argument("--runs", type=int, default=100,
-                        help="Number of Monte Carlo runs (default=100)")
-
-    # --------------------------
-    # Add MARGI mode option
-    # --------------------------
-    parser.add_argument(
-        "-m", "--margi",
-        type=int,
-        default=0,
-        help="MARGI mode: 1 adds STAR chimera flags, 0 disables (default=0)"
-    )
+    parser.add_argument("--input", required=True, help="Input FASTQ")
+    parser.add_argument("--part", default="rna")
+    parser.add_argument("--seed", type=int)
+    parser.add_argument("--config-log", default="generated_parameters.json")
+    parser.add_argument("--index", help="STAR genome index directory")
+    parser.add_argument("--threads", type=int)
+    parser.add_argument("--star-threads", type=int)
+    parser.add_argument("--runs", type=int, default=100)
+    parser.add_argument("--margi", type=int, default=0)
+    parser.add_argument("--output-root", type=str, default=".",
+                        help="Directory to place per-run subdirectories")
 
     args = parser.parse_args()
 
-    # Validate margi mode
-    if args.margi not in (0, 1):
-        parser.error("--margi must be 0 or 1")
-
-    if args.margi == 1:
-        print("MARGI mode ON → adding STAR chimera flags")
-    else:
-        print("MARGI mode OFF")
-
-    # ---- Apply overrides ----
-    if args.index is not None:
+    # apply options
+    if args.index:
         GENOME_DIR = args.index
-        print(f"Using custom genome directory: {GENOME_DIR}")
-
-    if args.threads is not None:
+    if args.threads:
         THREADS = args.threads
-        print(f"Using {THREADS} parallel executor threads.")
-
-    if args.star_threads is not None:
+    if args.star_threads:
         if args.star_threads < 1:
-            parser.error("--star-threads must be at least 1")
+            parser.error("--star-threads must be >=1")
         STAR_THREADS = args.star_threads
     args.star_threads = STAR_THREADS
 
-    if args.seed is not None:
+    # random seed
+    if args.seed:
         random.seed(args.seed)
-        print(f"Using random seed: {args.seed}")
 
-    num_runs = args.runs
-    print(f"Launching {num_runs} STAR runs with {THREADS} parallel workers "
-          f"and {STAR_THREADS} threads per STAR process.")
+    # generate configs
+    configs = [sample_random_config((args.seed or 1) + i)
+               for i in range(args.runs)]
 
-    # ---- Generate random configurations ----
-    configs = [sample_random_config(i + (args.seed or 1)) for i in range(num_runs)]
+    # save config log
+    with open(args.config_log, "w") as jf:
+        json.dump(configs, jf, indent=4)
 
-    # ---- Save configs ----
-    with open(args.config_log, "w") as f:
-        json.dump(configs, f, indent=4)
-    print(f"Saved all sampled configurations to {args.config_log}")
-
-    # ---- Parallel execution ----
-    with ThreadPoolExecutor(max_workers=THREADS) as executor:
+    # parallel execution
+    with ThreadPoolExecutor(max_workers=THREADS) as exe:
         futures = [
-            executor.submit(run_star, run_id, config, args)
-            for run_id, config in enumerate(configs)
+            exe.submit(run_star, i, cfg, args)
+            for i, cfg in enumerate(configs)
         ]
 
-        for i, future in enumerate(as_completed(futures), 1):
+        for i, fut in enumerate(as_completed(futures), 1):
             try:
-                future.result()
-                print(f"[{i}/{num_runs}] run completed")
-            except Exception as exc:
-                print(f"[{i}/{num_runs}] run failed: {exc}")
+                fut.result()
+                print(f"[{i}/{args.runs}] run completed")
+            except Exception as e:
+                print(f"[{i}/{args.runs}] run failed: {e}")
 
-
-# ============================================================
-# Entrypoint
-# ============================================================
 
 if __name__ == "__main__":
     main()

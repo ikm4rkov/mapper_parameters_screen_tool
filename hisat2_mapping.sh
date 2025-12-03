@@ -1,19 +1,35 @@
-#/bin/bash
+et -euo pipefail
 
 # ==========================================
-# Default configuration
+# Usage function
+# ==========================================
+usage() {
+  echo "Usage: $0 -f <fastq_list> -r <hisat2_index> -t <threads> -o <output_path> [-m <1|0>]"
+  echo ""
+  echo "Required:"
+  echo "  -f   Comma-separated FASTQ list (absolute or relative paths)"
+  echo "  -r   HISAT2 index basename"
+  echo "  -t   Threads"
+  echo "  -o   Output directory"
+  echo ""
+  echo "Optional:"
+  echo "  -m   MARGI mode: 1 adds -SP5M, 0 disables (default 0)"
+  echo "       Long option: --margi 0|1"
+  exit 1
+}
+
+# ==========================================
+# Defaults
 # ==========================================
 HISAT2="hisat2"
-THREADS=15
-REFERENCE="/home/ryabykh2018/iMARGI/alignment_tools/data/Sus_scrofa/genome/hisat2/Sus_scrofa.Sscrofa11.1_index"
-
-INPUT_FASTQ_PATH="/home/ryabykh2018/iMARGI/alignment_tools/data/Sus_scrofa/subsample_1M"
-OUTPUT_PATH="/home/ryabykh2018/iMARGI/alignment_tools/data/Sus_scrofa/subsample_1M/hisat2_test"
-
-MARGI_MODE=0   # default: off
+THREADS=""
+REFERENCE=""
+OUTPUT_PATH=""
+INPUT_FASTQS=""
+MARGI_MODE=0
 
 # ==========================================
-# Parameter ranges
+# Parameter ranges  (UNCHANGED)
 # ==========================================
 IGNORE_QUALS_VALUES="--ignore-quals ''"
 NO_TEMPLATELEN_ADJUSMENT_VALUES="--no-templatelen-adjustment ''"
@@ -26,34 +42,15 @@ RDG_VALUES="5,3"
 RFG_VALUES="5,3"
 
 # ==========================================
-# Usage function
-# ==========================================
-usage() {
-  echo "Usage: $0 -f <fastq_list> [-r <reference>] [-t <threads>] [-o <output_path>] [-m <1|0>]"
-  echo ""
-  echo "  -f   Comma-separated FASTQ list"
-  echo "  -r   HISAT2 index basename"
-  echo "  -t   Threads (default 15)"
-  echo "  -o   Output directory"
-  echo "  -m   MARGI mode: 1 adds -SP5M, 0 disables (default 0)"
-  echo "       Long option: --margi 0|1"
-  exit 1
-}
-
-# ==========================================
 # Argument parsing
 # ==========================================
-# Support long option --margi
 while [[ $# -gt 0 ]]; do
   case "$1" in
     -f) INPUT_FASTQS="$2"; shift 2 ;;
     -r) REFERENCE="$2"; shift 2 ;;
     -t) THREADS="$2"; shift 2 ;;
     -o) OUTPUT_PATH="$2"; shift 2 ;;
-    -m|--margi)
-        MARGI_MODE="$2"
-        shift 2
-        ;;
+    -m|--margi) MARGI_MODE="$2"; shift 2 ;;
     -*)
         echo "Unknown option: $1"
         usage
@@ -64,21 +61,18 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [ -z "$INPUT_FASTQS" ]; then
-  echo "Error: please provide FASTQ list with -f"
-  usage
-fi
+# ==========================================
+# Validate required arguments
+# ==========================================
+[[ -z "$INPUT_FASTQS" ]] && { echo "Error: -f is required"; usage; }
+[[ -z "$REFERENCE" ]]    && { echo "Error: -r is required"; usage; }
+[[ -z "$THREADS" ]]      && { echo "Error: -t is required"; usage; }
+[[ -z "$OUTPUT_PATH" ]]  && { echo "Error: -o is required"; usage; }
 
-# Validate MARGI_MODE
+# Validate MARGI
 if [[ "$MARGI_MODE" != "0" && "$MARGI_MODE" != "1" ]]; then
   echo "Error: -m / --margi must be 0 or 1"
   exit 1
-fi
-
-if [[ "$MARGI_MODE" -eq 1 ]]; then
-  echo "MARGI mode ON → adding -SP5M to HISAT2 command"
-else
-  echo "MARGI mode OFF"
 fi
 
 # ==========================================
@@ -87,7 +81,7 @@ fi
 mkdir -p "$OUTPUT_PATH"
 
 if ! command -v "$HISAT2" >/dev/null 2>&1; then
-  echo "Error: HISAT2 not found: $HISAT2" >&2
+  echo "Error: HISAT2 not found in PATH" >&2
   exit 1
 fi
 
@@ -99,17 +93,13 @@ trim() {
 # Main loop
 # ==========================================
 IFS=',' read -ra FASTQ_ARRAY <<< "$INPUT_FASTQS"
+
 for raw in "${FASTQ_ARRAY[@]}"; do
   INPUT_FASTQ=$(trim "$raw")
 
-  if [[ "$INPUT_FASTQ" = /* ]]; then
-    FASTQ_FULLPATH="$INPUT_FASTQ"
-  else
-    FASTQ_FULLPATH="${INPUT_FASTQ_PATH%/}/$INPUT_FASTQ"
-  fi
-
-  if [ ! -f "$FASTQ_FULLPATH" ]; then
-    echo "Warning: FASTQ not found: $FASTQ_FULLPATH — skipping" >&2
+  # FASTQ must exist exactly as provided
+  if [ ! -f "$INPUT_FASTQ" ]; then
+    echo "Warning: FASTQ not found: $INPUT_FASTQ — skipping" >&2
     continue
   fi
 
@@ -127,9 +117,15 @@ for raw in "${FASTQ_ARRAY[@]}"; do
                 for rdg in $RDG_VALUES; do
                   for rfg in $RFG_VALUES; do
 
-                    HISAT2_PARAMS="$(echo $ignore_quals | tr -d "'") $(echo $no_templatelen | tr -d "'") $(echo $nondeterministic | tr -d "'") --pen-noncansplice $pen_noncansplice --max-seeds $max_seeds --score-min $score_min --mp $mp --rdg $rdg --rfg $rfg"
+                    # Build params
+                    HISAT2_PARAMS="$(echo $ignore_quals | tr -d "'") \
+$(echo $no_templatelen | tr -d "'") \
+$(echo $nondeterministic | tr -d "'") \
+--pen-noncansplice $pen_noncansplice \
+--max-seeds $max_seeds --score-min $score_min \
+--mp $mp --rdg $rdg --rfg $rfg"
 
-                    # Add MARGI parameter
+                    # Add MARGI
                     if [[ "$MARGI_MODE" -eq 1 ]]; then
                       HISAT2_PARAMS="$HISAT2_PARAMS -SP5M"
                     fi
@@ -143,19 +139,22 @@ for raw in "${FASTQ_ARRAY[@]}"; do
 
                     echo "Running HISAT2 with params: $HISAT2_PARAMS" | tee -a "$LOG_FILE"
 
-                    "$HISAT2" -x "$REFERENCE" -U "$FASTQ_FULLPATH" -k 100 --dta \
-                      $HISAT2_PARAMS -p "$THREADS" --summary-file "$LOG_FILE" 2>>"$LOG_FILE" \
-                    | samtools view -bS -o "$OUTPUT_BAM"
-          
-                    #  echo "Error: HISAT2 failed for $FASTQ_FULLPATH" | tee -a "$LOG_FILE" >&2
-                    #  continue
-                    #fi
+                    # Run alignment
+                    $HISAT2 \
+                      -x "$REFERENCE" \
+                      -U "$INPUT_FASTQ" \
+                      -k 100 --dta \
+                      $HISAT2_PARAMS \
+                      -p "$THREADS" \
+                      --summary-file "$LOG_FILE" 2>>"$LOG_FILE" \
+                      | samtools view -bS -o "$OUTPUT_BAM"
 
                     if [ ! -f "$OUTPUT_BAM" ]; then
                       echo "Error: BAM not created" | tee -a "$LOG_FILE" >&2
                       continue
                     fi
 
+                    # Count metrics
                     COUNT_UNIQ_MAPPED=$(samtools view -F 256 -F 4 -e '[NH]==1' "$OUTPUT_BAM" | wc -l)
                     COUNT_TOTAL_UNIQ_IDS=$(samtools view "$OUTPUT_BAM" | cut -f1 | sort | uniq | wc -l)
 
@@ -173,4 +172,4 @@ for raw in "${FASTQ_ARRAY[@]}"; do
 done
 
 echo "Script completed successfully."
-   
+

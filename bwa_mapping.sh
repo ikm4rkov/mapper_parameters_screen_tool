@@ -75,7 +75,7 @@ for raw in "${FASTQ_ARRAY[@]}"; do
           MAKE_DIR="${OUTPUT_PATH}/${PART}_output_${PARAMS_SUFFIX}"
           mkdir -p "$MAKE_DIR"
 
-          OUTPUT_BAM="${MAKE_DIR}/output.bam"
+          OUTPUT_BAM="${MAKE_DIR}/output_sorted.bam"
           LOG_FILE="${MAKE_DIR}/alignment.log"
 
           echo "Running BWA with params: $BWA_PARAMS" | tee -a "$LOG_FILE"

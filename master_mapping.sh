@@ -1,47 +1,50 @@
-#!/usr/bin/env bash
-
-set -euo pipefail
+et -euo pipefail
 
 ##############################################
-# Helper: print usage
+# Usage message
 ##############################################
 usage() {
         cat <<EOF
-Usage: $0 <config_file> --imargi <1|0> --mode <bowtie2|star|hisat2|bwa> [OPTIONS]
+Usage: $0 <config_file> --mode <bowtie2|star|hisat2|bwa> [OPTIONS]
 
-config_file: path to the config file (mappers.conf), required
+config_file: path to mappers.conf
 
-Common options:
-    --imargi        1 (true) or 0 (false)
-    --mode          Mapper: bowtie2, star, hisat2, bwa
+Common parameters:
+  --mode              Mapper to run
+  --imargi            1 or 0
+  --part              dna/rna (bowtie2 + star)
+  --seed              Random seed (bowtie2 + star)
+  --config-log        Name for config log (bowtie2 + star)
+  --threads           Threads (bowtie2 + star)
+  -t                  Threads (bwa/hisat2)
 
-Bowtie2 / STAR options:
-    --part          dna or rna
-    --seed          Random seed
-    --config-log    Optional log name
-    --threads       Number of threads
+FASTQ_INPUTS and OUTPUT_PREFIX must be supplied via config file.
 
-BWA / HISAT2 options:
-    -t              Number of threads
-    # -o              Output directory  # OUTPUT_PATH будет задан автоматически для bwa
+Reference index convention:
+  \$WORK_DIR/genomes/<mapper>/\$OUTPUT_PREFIX
 
-FASTQ_INPUTS импортируется из конфига для всех режимов и не задается через параметры.
-Для bwa mode, если FASTQ_INPUTS и OUTPUT_PREFIX заданы в config, они будут использованы автоматически.
-Reference genome index будет, например, "$WORK_DIR/genomes/bwa/$OUTPUT_PREFIX".
+Output directory convention:
+  \$WORK_DIR/mapping/<mapper>/
 EOF
         exit 1
 }
 
 ##############################################
-# Examples:
-# ./master_mapping.sh /mnt/scratch/rnachrom/ryabykh2018/grid_pig/sus_scrofa_mapper_parameters_screening/mappers.conf --mode bwa -t 4
+# Parse input
 ##############################################
+if [ $# -lt 1 ]; then usage; fi
 
-##############################################
-# Argument parsing
-##############################################
+config_file="$1"
+shift
 
-# Defaults
+if [[ ! -f "$config_file" ]]; then
+    echo "Error: config file '$config_file' not found."
+    exit 1
+fi
+
+source "$config_file"
+
+# ---- defaults ----
 IMARGI="0"
 MODE=""
 PART=""
@@ -49,23 +52,11 @@ SEED=""
 CONFIG_LOG=""
 THREADS=""
 T_ARG=""
-O_ARG=""
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-
-# Получаем путь до конфига как первый аргумент
-if [ $# -lt 1 ]; then
-    usage
-fi
-config_file="$1"
-shift
-
-if [ ! -f "$config_file" ]; then
-    echo "Error: config file '$config_file' not found."
-    exit 1
-fi
-source "$config_file"
-
-# Manual argument parsing
+##############################################
+# Minimal manual parser
+##############################################
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --imargi)      IMARGI="$2"; shift 2 ;;
@@ -75,27 +66,29 @@ while [[ $# -gt 0 ]]; do
         --config-log)  CONFIG_LOG="$2"; shift 2 ;;
         --threads)     THREADS="$2"; shift 2 ;;
         -t)            T_ARG="$2"; shift 2 ;;
-        -o)            O_ARG="$2"; shift 2 ;;
         -h|--help)     usage ;;
-        *) echo "Unknown argument: $1" ; usage ;;
+        *) echo "Unknown argument: $1"; usage ;;
     esac
 done
 
 ##############################################
-# Validate --imargi
+# Validate FASTQ_INPUTS / OUTPUT_PREFIX
 ##############################################
-if [[ "$IMARGI" == "1" ]]; then
-    echo "not implemented yet"
-    exit 0
-elif [[ "$IMARGI" != "0" ]]; then
-    echo "Error: --imargi must be 1 or 0."
+if [[ -z "${FASTQ_INPUTS:-}" ]]; then
+    echo "ERROR: FASTQ_INPUTS must be exported in the config file."
+    exit 1
+fi
+
+if [[ -z "${OUTPUT_PREFIX:-}" ]]; then
+    echo "ERROR: OUTPUT_PREFIX must be exported in the config file."
     exit 1
 fi
 
 ##############################################
-# Determine directory of this script
+# Standardized reference and output dirs
 ##############################################
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+REFDIR="$WORK_DIR/genomes"
+OUTDIR="$WORK_DIR/mapping"
 
 ##############################################
 # Mode dispatch
@@ -104,47 +97,76 @@ CMD=()
 WORKER_SCRIPT=""
 
 case "$MODE" in
+
+################################################
+# BOWTIE2 (Python randomized sampling)
+################################################
     bowtie2)
         WORKER_SCRIPT="${SCRIPT_DIR}/bowtie2_montecarlo.py"
-        # FASTQ_INPUTS импортируется из конфига
-        CMD=( python3 "$WORKER_SCRIPT"
-              --fastq-inputs "$FASTQ_INPUTS"
-              --part "$PART"
-              --seed "$SEED"
-              --index "$WORK_DIR/genomes/bwa/$OUTPUT_PREFIX"
-              --threads "$THREADS" )
+
+        CMD=(
+            python3 "$WORKER_SCRIPT"
+            --fastq-inputs "$FASTQ_INPUTS"
+            --part "$PART"
+            --seed "$SEED"
+            --index "$REFDIR/bowtie2/$OUTPUT_PREFIX"
+            --threads "$THREADS"
+            --bowtie2-bin "$BOWTIE2"
+        )
+
         [[ -n "$CONFIG_LOG" ]] && CMD+=( --config-log "$CONFIG_LOG" )
         ;;
 
+################################################
+# STAR (Python randomized sampling)
+################################################
     star)
         WORKER_SCRIPT="${SCRIPT_DIR}/star_montecarlo.py"
-        CMD=( python3 "$WORKER_SCRIPT"
-              --fastq-inputs "$FASTQ_INPUTS"
-              --part "$PART"
-              --seed "$SEED"
-              --index "$WORK_DIR/genomes/star"
-              --threads "$THREADS" )
+
+        CMD=(
+            python3 "$WORKER_SCRIPT"
+            --fastq-inputs "$FASTQ_INPUTS"
+            --part "$PART"
+            --seed "$SEED"
+            --index "$REFDIR/star/$OUTPUT_PREFIX"
+            --threads "$THREADS"
+            --star-bin "$STAR"
+        )
+
         [[ -n "$CONFIG_LOG" ]] && CMD+=( --config-log "$CONFIG_LOG" )
         ;;
 
+################################################
+# BWA (shell script)
+################################################
     bwa)
         WORKER_SCRIPT="${SCRIPT_DIR}/bwa_mapping.sh"
-        CMD=( bash "$WORKER_SCRIPT"
-              -f "$FASTQ_INPUTS"
-              -r "$WORK_DIR/genomes/bwa/$OUTPUT_PREFIX"
-              -t "$T_ARG"
-              -o "$WORK_DIR/mapping/bwa"
-              -m "$IMARGI"
-              -b "$BWA_MEM" )
+
+        CMD=(
+            bash "$WORKER_SCRIPT"
+            -f "$FASTQ_INPUTS"
+            -r "$REFDIR/bwa/$OUTPUT_PREFIX"
+            -t "$T_ARG"
+            -o "$OUTDIR/bwa"
+            -m "$IMARGI"
+            -b "$BWA_MEM"
+        )
         ;;
 
+################################################
+# HISAT2 (shell script)
+################################################
     hisat2)
         WORKER_SCRIPT="${SCRIPT_DIR}/hisat2_mapping.sh"
-        CMD=( bash "$WORKER_SCRIPT"
-              -f "$FASTQ_INPUTS"
-              -r "$WORK_DIR/genomes/hisat2/$OUTPUT_PREFIX"
-              -t "$T_ARG"
-              -o "$O_ARG" )
+
+        CMD=(
+            bash "$WORKER_SCRIPT"
+            -f "$FASTQ_INPUTS"
+            -r "$REFDIR/hisat2/$OUTPUT_PREFIX"
+            -t "$T_ARG"
+            -o "$OUTDIR/hisat2"
+            -b "$HISAT2"
+        )
         ;;
 
     *)
@@ -154,19 +176,16 @@ case "$MODE" in
 esac
 
 ##############################################
-# Check that worker script exists
+# Check worker exists
 ##############################################
 if [[ ! -f "$WORKER_SCRIPT" ]]; then
-    echo "Error: Worker script not found: $WORKER_SCRIPT"
+    echo "ERROR: Worker script not found: $WORKER_SCRIPT"
     exit 1
 fi
 
 ##############################################
-# Execute command
+# Run
 ##############################################
 echo "Executing: ${CMD[*]}"
 exec "${CMD[@]}"
-
-
-~
 
