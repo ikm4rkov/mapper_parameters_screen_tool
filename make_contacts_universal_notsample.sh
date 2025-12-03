@@ -2,7 +2,7 @@
 
 CONTACT_SCRIPT="/gpfs/ryabykhgrigory/bin/Bam_to_Contacts_grisha_fix.py"
 BASE_DIR="bowtie2_montecarlo_wrapper_outputs"
-MODE="BWA"
+MODE="STAR"
 ENZYME="ATA"
 
 # =========================================================
