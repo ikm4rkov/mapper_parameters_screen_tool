@@ -9,6 +9,7 @@
 !make_contacts_universal_notsample.sh
 !master_mapping.sh
 !master_until_cigar.sh
+!rename.py
 !sam2bam_and_sort.sh
 !star_montecarlo.py
 !scatterplots.py

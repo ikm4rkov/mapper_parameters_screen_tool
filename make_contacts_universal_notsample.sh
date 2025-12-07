@@ -1,9 +1,7 @@
 #!/usr/bin/env bash
 
-CONTACT_SCRIPT="/gpfs/ryabykhgrigory/bin/Bam_to_Contacts_grisha_fix.py"
+CONTACT_SCRIPT="Bam_to_Contacts_grisha_fix.py"
 BASE_DIR="bowtie2_montecarlo_wrapper_outputs"
-MODE="BWA"
-ENZYME="ATA"
 
 # =========================================================
 # Usage
@@ -32,12 +30,14 @@ usage() {
 # =========================================================
 # Defaults
 # =========================================================
+MODE=""
+ENZYME="ATA"
 MODE_SELECTION=""
 COUNT=0
 SEED=0
 DIFFERENT=0
 BASE_DIR_OVERRIDE=""
-MAPPER_BRANCH="collab"   # default behavior preserved
+MAPPER_BRANCH="collab"
 
 # =========================================================
 # Argument parsing
@@ -55,6 +55,11 @@ while [[ $# -gt 0 ]]; do
                 echo "Error: --mapper-branch must be 'collab' or 'native'"
                 exit 1
             fi
+            shift 2
+            ;;
+        -M|--mapper)
+            MAPPER_OVERRIDE="$2"
+            MODE="$2"
             shift 2
             ;;
         -h|--help) usage ;;

@@ -11,6 +11,7 @@ SCRIPT2_COUNT=0
 SCRIPT2_SEED=0
 SCRIPT2_DIFFERENT=0
 SCRIPT2_MAPPER_BRANCH="collab"
+SCRIPT2_MAPPER=""
 
 SAMPLE_CONTACTS=0
 CONTACTS_MODE="all"
@@ -36,6 +37,7 @@ usage() {
     echo "  --pairs FILE                Pairs TSV file for contacts script (default pairs.tsv)"
     echo "  --raw-contacts DIR          Directory to save raw contact files"
     echo "  --mapper-branch native|collab  Branch for script #2 (default collab)"
+    echo "  --mapper NAME (STAR|BWA)"   BWA uses tags for multimappers in its output, other mappers write separate entries"
     echo
     echo "Options for script #2 random mode:"
     echo "  -c, --count NUMBER"
@@ -55,6 +57,7 @@ while [[ $# -gt 0 ]]; do
         --pairs) CONTACTS_PAIRS_FILE="$2"; shift 2 ;;
         --raw-contacts) RAW_CONTACTS_DIR="$2"; shift 2 ;;
         --mapper-branch) SCRIPT2_MAPPER_BRANCH="$2"; shift 2 ;;
+        --mapper) SCRIPT2_MAPPER="$2"; shift 2 ;;
         -c|--count) SCRIPT2_COUNT="$2"; shift 2 ;;
         -s|--seed) SCRIPT2_SEED="$2"; shift 2 ;;
         -d|--different) SCRIPT2_DIFFERENT="$2"; shift 2 ;;
@@ -97,7 +100,7 @@ exec > >(tee -a "$LOG_FILE") 2>&1
 if [[ "$SAMPLE_CONTACTS" -eq 1 ]]; then
     ./make_contacts_sample.sh --mode "$CONTACTS_MODE" --pairs "$CONTACTS_PAIRS_FILE"
 else
-    SCRIPT2_ARGS=(--base-dir "$BASE_DIR" -m "$CONTACTS_MODE" --mapper-branch "$SCRIPT2_MAPPER_BRANCH")
+    SCRIPT2_ARGS=(--base-dir "$BASE_DIR" -m "$CONTACTS_MODE" --mapper-branch "$SCRIPT2_MAPPER_BRANCH" --mapper $SCRIPT2_MAPPER")
     if [[ "$SCRIPT2_COUNT" -gt 0 ]]; then
         SCRIPT2_ARGS+=(-m random -c "$SCRIPT2_COUNT" -s "$SCRIPT2_SEED" -d "$SCRIPT2_DIFFERENT")
     fi
@@ -122,7 +125,7 @@ FILTER_OUTPUT_DIR="${FILTER_OUTPUT_DIR:-filtered_contacts}"
 mkdir -p "$FILTER_OUTPUT_DIR"
 
 if [[ -n "$FILTER_INPUT_DIR" ]]; then
-    ./calculate_CIAGAR_filter.sh -i "$FILTER_INPUT_DIR" -o "$FILTER_OUTPUT_DIR" -r "$FILTER_RESULTS_FILE"
+    ./calculate_CIGAR_filter.sh -i "$FILTER_INPUT_DIR" -o "$FILTER_OUTPUT_DIR" -r "$FILTER_RESULTS_FILE"
 fi
 
 
