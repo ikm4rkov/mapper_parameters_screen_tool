@@ -198,25 +198,64 @@ dna/
 
 ---
 
+# **Установка**
+
+### **1 - клонирование репозитория**
+
+git clone https://github.com/ikm4rkov/mapper_parameters_screen_tool.git
+cd mapper_parameters_screen_tool
+
+### **2 - установка зависимостей Python**
+
+pip install -r requirements.txt
+
+### **3 - установка GNU Parallel (приведена сборка из исходников)**
+
+wget https://ftp.gnu.org/gnu/parallel/parallel-latest.tar.bz2
+tar -xf parallel-latest.tar.bz2
+cd parallel-<версия>
+./configure
+make
+make install
+
+### **4 - зависимости от репозиториев коллег**
+
+Данный репозиторий опирается на отдельные вспомогательные скрипты:
+
+* 1. EditDistance_CIGAR_filter.py из https://github.com/ryabykh2018/nf-rnachrom-EditDistance_CIGAR_filter
+* 2. Bam_to_Contacts_prerelease2.py из https://github.com/ilnitsky/nf-rnachrom/tree/26f9d2d9325726233adada02e2d36a981ff270b8/bin
+
+Необходимо добавить их в переменную PATH, либо указать до них путь в скриптах для картирования (...montecarlo.py, <картировщик>...mapping.sh).
+
+### **5 - наличие картировщиков**
+
+Предполагается, что код из репозитория будет тестировать 4 картировщика: Bowtie 2, BWA-mem, Hisat2 и STAR. Для начала работы они должны быть установлены.
+
+### **6 - входные данные**
+
+Принимаются данные в формате FASTQ. Для тестирования использовались преобработанные (после удаления ПЦР-адаптеров, ПЦР-дублей и линкерной последовательности) данные протокола GRID-seq из исследования домашней свиньи (https://doi.org/10.1186/s12915-022-01322-2). Выборка получена, с помощью seqkit sample. **! Для проверки картироващиков BWA и Hisat2 необходимо иметь название файлов как <ID>.<dna|rna>.fastq, так как по символу точке и последующей строке производится обработка ДНК- или РНК-части контактов.** Пока что не реализована batch-обработка набора файлов: для обработки каждого входного файла требуется провести отедельный запуск.
+
+---
+
 
 # **Основной рабочий процесс**
 
-### **Шаг 1 — построить индексы**
+### **1 — построить индексы**
 
 ./indexing.sh genome.fa annotation.gtf myindex 16
 
 
-### **Шаг 2 — выполнить картирование**
+### **2 — выполнить картирование**
 
 ./master_mapping.sh --fastq-dir fastq/id.fastq --mapper star --part rna --seed 42 --genome-dir myindex_STAR/ --threads 8 
 
 
-### **Шаг 3 — построить контакты**
+### **3 — построить контакты**
 
 ./master_until_cigar.sh --base-dir map_out/ --raw-contacts raw/ --mode all --mapper BWA
 
 
-### **Шаг 4 — сформировать отчёт**
+### **4 — сформировать отчёт**
 
 python3 scatterplots.py -r raw/ -i filtered_contacts/ -d reports/ -o sample1
 

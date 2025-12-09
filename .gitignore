@@ -1,6 +1,7 @@
 *
 !.gitignore
 !README.md
+!requirements.txt
 !bowtie2_montecarlo.py
 !bwa_mapping.sh
 !hisat2_mapping.sh
