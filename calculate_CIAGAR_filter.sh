@@ -3,22 +3,24 @@
 # ---------------------------
 # Parse command-line options
 # ---------------------------
-while getopts "i:o:r:" opt; do
-    case "$opt" in
-        i) input_dir="$OPTARG" ;;
-        o) output_base="$OPTARG" ;;
-        r) results_file="$OPTARG" ;;
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -i) input_dir="$2"; shift 2 ;;
+        -o) output_base="$2"; shift 2 ;;
+        -s) EDIT_DISTANCE_CIGAR_FILTER_SCRIPT="$2"; shift 2 ;;
+        -k)                 RNA_MODE="$2"; shift 2 ;;
+        -kk)                DNA_MODE="$2"; shift 2 ;;
         *)
-            echo "Usage: $0 -i input_dir -o output_base -r results_file"
+            echo "Usage: $0 -i input_dir -o output_base -s EDIT_DISTANCE_CIGAR_FILTER_SCRIPT"
             exit 1
             ;;
     esac
 done
 
 # Check required parameters
-if [ -z "$input_dir" ] || [ -z "$output_base" ] || [ -z "$results_file" ]; then
+if [ -z "$input_dir" ] || [ -z "$output_base" ]; then
     echo "Error: Missing arguments."
-    echo "Usage: $0 -i input_dir -o output_base -r results_file"
+    echo "Usage: $0 -i input_dir -o output_base"
     exit 1
 fi
 
@@ -29,45 +31,24 @@ fi
 # Ensure output directories exist
 mkdir -p "$output_base"
 
-# Clear or create results file
-> "$results_file"
-
-# Move into output base directory
-cd "$output_base" || exit 1
-
 # Process all *.tab.rc files
-for input_file in "$input_dir"/*Unique_RNA.tab.rc; do
-    file_name=$(basename "$input_file")
-
-    # Create a subdirectory for this file
-    output_dir="$output_base/${file_name%.tab.rc}"
+for subdir in "$input_dir"/rna_${RNA_MODE,,}_*__dna_${DNA_MODE,,}_*/; do
+    # Получаем имя поддиректории
+    subdir_name=$(basename "$subdir")
+    # Создаём соответствующую папку в output_base
+    output_dir="$output_base/$subdir_name"
     mkdir -p "$output_dir"
-
-    # Full path to input file
-    input_file_path="$input_dir/$file_name"
+    echo "Processing directory: $subdir_name"
+    # # Full path to input file
+    # input_file_path="$input_dir/$file_name"
 
     # Run Python script
-    python /gpfs/ryabykhgrigory/bin/EditDistance_CIGAR_filter.py \
-        "NM + N_softClipp_bp" 2 2 0 0 200 "no" "explorer" "ATA, iMARGI" \
-        "$file_name" \
-        "${input_dir}/" \
-        "$output_dir"
+    python "$EDIT_DISTANCE_CIGAR_FILTER_SCRIPT" \
+        "NM + N_softClipp_bp" 2 2 0 0 200 "no" "explorer" "ATA, not iMARGI" \
+        "raw_contacts_Unique_RNA.tab.rc" \
+        "$subdir/" \
+        "$output_dir/"
 
-    # Log filename to results
-    echo "$file_name" >> "$results_file"
-
-    # Path to filtered file
-    filtered_file="$output_dir/filtered_${file_name}"
-
-    # Analyze if exists
-    if [ -f "$filtered_file" ]; then
-        cut -f2 "$filtered_file" | sort | uniq -c >> "$results_file"
-    else
-        echo "File $filtered_file not found" >> "$results_file"
-    fi
-
-    echo "" >> "$results_file"
 done
 
-echo "Analysis complete. Results saved to $results_file"
-
+echo "CIGAR filter complete."

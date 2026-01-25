@@ -5,33 +5,35 @@
 
 
 # Аргументы: -f <fastq_list> -r <reference> -t <threads> -o <output_path> [-m <1|0>] -b <bwa_mem_path>
-while getopts "f:r:t:o:m:b:" opt; do
-  case "$opt" in
-    f) INPUT_FASTQS="$OPTARG" ;;
-    r) REFERENCE="$OPTARG" ;;
-    t) THREADS="$OPTARG" ;;
-    o) OUTPUT_PATH="$OPTARG" ;;
-    m) MARGI_MODE="$OPTARG" ;;
-    b) BWA_MEM="$OPTARG" ;;
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    -f) INPUT_FASTQS="$2"; shift 2 ;;
+    -r) REFERENCE="$2"; shift 2 ;;
+    -t) THREADS="$2"; shift 2 ;;
+    -o) OUTPUT_PATH="$2"; shift 2 ;;
+    -m) MARGI_MODE="$2"; shift 2 ;;
+    -b) BWA_MEM="$2"; shift 2 ;;
+    -n) N_READS_INPUT="$2"; shift 2 ;;
+    -w) WORK_DIR="$2"; shift 2 ;;
     \?) echo "Invalid option: -$OPTARG" >&2; exit 1 ;;
   esac
 done
 
 
-if [ -z "$INPUT_FASTQS" ] || [ -z "$REFERENCE" ] || [ -z "$THREADS" ] || [ -z "$OUTPUT_PATH" ] || [ -z "$BWA_MEM" ]; then
-  echo "Usage: $0 -f <fastq_list> -r <reference> -t <threads> -o <output_path> [-m <1|0>] -b <bwa_mem_path>"
-  exit 1
-fi
+# if [ -z "$INPUT_FASTQS" ] || [ -z "$REFERENCE" ] || [ -z "$THREADS" ] || [ -z "$OUTPUT_PATH" ] || [ -z "$BWA_MEM" ]; then
+#   echo "Usage: $0 -f <fastq_list> -r <reference> -t <threads> -o <output_path> [-m <1|0>] -b <bwa_mem_path>"
+#   exit 1
+# fi
 
 # ================================
 # Parameter ranges
 # ================================
-T_VALUES="1" #10 20 30
-K_VALUES="15 19" #5 10 
+T_VALUES="20" #10 20 30
+K_VALUES="10" #5 10 
 L_VALUES="4" #"3 4 5"
-# B_VALUES="2 4"
-# O_VALUES="4 6"
-#W_VALUES="1 25 50 100"
+B_VALUES="2 4"
+O_VALUES="4 6"
+W_VALUES="1 25 50 100"
 
 
 # Make output dir (absolute)
@@ -49,6 +51,8 @@ trim() {
 # Main loop: split comma-separated list safely
 # ================================
 IFS=',' read -ra FASTQ_ARRAY <<< "$INPUT_FASTQS"
+
+i=1
 
 for raw in "${FASTQ_ARRAY[@]}"; do
   INPUT_FASTQ=$(trim "$raw")
@@ -70,10 +74,15 @@ for raw in "${FASTQ_ARRAY[@]}"; do
           if [ "$MARGI_MODE" -eq 1 ]; then
             BWA_PARAMS="$BWA_PARAMS -5"
           fi
-
-          PARAMS_SUFFIX=$(echo "$BWA_PARAMS" | sed 's/-//g' | sed 's/ /_/g')
-          MAKE_DIR="${OUTPUT_PATH}/${PART}_output_${PARAMS_SUFFIX}"
+          
+          # Create directory with counter
+          MAKE_DIR="${OUTPUT_PATH}/${PART}_bwa_${i}"
           mkdir -p "$MAKE_DIR"
+          echo -e "${PART}_bwa_${i}\t$BWA_PARAMS" >> "$WORK_DIR/parameters_bwa.log"
+          i=$((i + 1))
+          # PARAMS_SUFFIX=$(echo "$BWA_PARAMS" | sed 's/-//g' | sed 's/ /_/g')
+          # MAKE_DIR="${OUTPUT_PATH}/${PART}_output_${PARAMS_SUFFIX}"
+          # mkdir -p "$MAKE_DIR"
 
           OUTPUT_BAM="${MAKE_DIR}/output_sorted.bam"
           LOG_FILE="${MAKE_DIR}/alignment.log"
@@ -89,6 +98,12 @@ for raw in "${FASTQ_ARRAY[@]}"; do
           # verify bam was created
           if [ ! -f "$OUTPUT_BAM" ]; then
             echo "Error: output BAM not created: $OUTPUT_BAM" | tee -a "$LOG_FILE" >&2
+            continue
+          fi
+
+          # Check if the number of unique reads matches N_READS_INPUT
+          if [[ $(samtools view "$OUTPUT_BAM" | cut -f1 | sort | uniq | wc -l) -ne "$N_READS_INPUT" ]]; then
+            echo "Error: The number of unique reads does not match N_READS_INPUT ($N_READS_INPUT)." | tee -a "$LOG_FILE" >&2
             continue
           fi
 

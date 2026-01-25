@@ -3,7 +3,7 @@
 Flexible report generator for UU/UM and uniquely-mapped RNA/DNA counts.
 
 Usage:
-  python3 make_report_flexible.py \
+  python3 scatterplots.py \
       -r /path/to/rawdir \
       -i /path/to/filtereddir \
       -d /path/to/outdir \

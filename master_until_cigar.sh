@@ -7,67 +7,91 @@ set -euo pipefail
 
 BASE_DIR=""
 SCRIPT2_MODE_SELECTION="all"
-SCRIPT2_COUNT=0
-SCRIPT2_SEED=0
-SCRIPT2_DIFFERENT=0
-SCRIPT2_MAPPER_BRANCH="collab"
-
-SAMPLE_CONTACTS=0
 CONTACTS_MODE="all"
-CONTACTS_PAIRS_FILE="pairs.tsv"
-
-RAW_CONTACTS_DIR=""
-FILTER_INPUT_DIR=""
 FILTER_OUTPUT_DIR=""
-FILTER_RESULTS_FILE="results_summary.txt"
 
-LOG_FILE="wrapper.log"
+###############################################
+# Examples:
+# ./master_until_cigar.sh /mnt/scratch/rnachrom/ryabykh2018/grid_pig/sus_scrofa_mapper_parameters_screening/mappers.conf --contacts-mode all --rna-mode BWA --dna-mode BWA
+# ./master_until_cigar.sh /mnt/scratch/rnachrom/ryabykh2018/grid_pig/sus_scrofa_mapper_parameters_screening/mappers.conf --contacts-mode all --rna-mode STAR --dna-mode STAR
+# ./master_until_cigar.sh /mnt/scratch/rnachrom/ryabykh2018/grid_pig/sus_scrofa_mapper_parameters_screening/mappers.conf --contacts-mode all --rna-mode HISAT2 --dna-mode HISAT2
+# ./master_until_cigar.sh /mnt/scratch/rnachrom/ryabykh2018/grid_pig/sus_scrofa_mapper_parameters_screening/mappers.conf --contacts-mode all --rna-mode BOWTIE2 --dna-mode BOWTIE2
+#
+# ./master_until_cigar.sh /mnt/scratch/rnachrom/ryabykh2018/grid_pig/sus_scrofa_mapper_parameters_screening/mappers.conf --contacts-mode all --rna-mode STAR --dna-mode BWA
+# ./master_until_cigar.sh /mnt/scratch/rnachrom/ryabykh2018/grid_pig/sus_scrofa_mapper_parameters_screening/mappers.conf --contacts-mode all --rna-mode HISAT2 --dna-mode BWA
+# ./master_until_cigar.sh /mnt/scratch/rnachrom/ryabykh2018/grid_pig/sus_scrofa_mapper_parameters_screening/mappers.conf --contacts-mode all --rna-mode HISAT2 --dna-mode BOWTIE2
+# ./master_until_cigar.sh /mnt/scratch/rnachrom/ryabykh2018/grid_pig/sus_scrofa_mapper_parameters_screening/mappers.conf --contacts-mode all --rna-mode STAR --dna-mode BOWTIE2
+###############################################
 
 ###############################################
 # Usage function
 ###############################################
-usage() {
-    echo "Usage: $0 -b <base_dir> [options]"
-    echo
-    echo "Options:"
-    echo "  -b, --base-dir DIR          Base directory for BAM/SAM processing (required)"
-    echo "  --sample-contacts 0|1       Whether to run sample contacts script (default 0)"
-    echo "  --mode all|one              Mode for contacts generation script (default all)"
-    echo "  --pairs FILE                Pairs TSV file for contacts script (default pairs.tsv)"
-    echo "  --raw-contacts DIR          Directory to save raw contact files"
-    echo "  --mapper-branch native|collab  Branch for script #2 (default collab)"
-    echo
-    echo "Options for script #2 random mode:"
-    echo "  -c, --count NUMBER"
-    echo "  -s, --seed NUMBER"
-    echo "  -d, --different 0|1"
-    exit 1
-}
+# usage() {
+#     echo "Usage: $0 <config_file> -b <base_dir> --mode <STAR|HISAT2|BWA> [options]"
+#     echo
+#     echo "--mode                        Mapper: STAR, HISAT2, BWA (подходит и для BOWTIE2)"
+#     echo
+#     echo "Options:"
+#     # echo "  -b, --base-dir DIR          Base directory for BAM/SAM processing (required)"
+#     echo "  --sample-contacts 0|1       Whether to run sample contacts script (default 0)"
+#     echo "  --contacts-mode all|one              Mode for contacts generation script (default all)"
+#     echo "  --pairs FILE                Pairs TSV file for contacts script (default pairs.tsv)"
+#     echo "  --mapper-branch native|collab  Branch for script #2 (default collab)"
+#     echo
+#     echo "Options for script #2 random mode:"
+#     echo "  -c, --count NUMBER"
+#     echo "  -s, --seed NUMBER"
+#     echo "  -d, --different 0|1"
+#     exit 1
+# }
+
+# Получаем путь до конфига как первый аргумент
+if [ $# -lt 1 ]; then
+    usage
+fi
+config_file="$1"
+shift
+
+# Check config file existence and source it (required)
+if [ ! -f "$config_file" ]; then
+  echo "Error: Config file '$config_file' not found. This parameter is required."
+  exit 1
+fi
+# shellcheck source=/dev/null
+source "$config_file"
 
 ###############################################
 # Parse command-line arguments
 ###############################################
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        -b|--base-dir) BASE_DIR="$2"; shift 2 ;;
-        --sample-contacts) SAMPLE_CONTACTS="$2"; shift 2 ;;
-        --mode) CONTACTS_MODE="$2"; shift 2 ;;
-        --pairs) CONTACTS_PAIRS_FILE="$2"; shift 2 ;;
-        --raw-contacts) RAW_CONTACTS_DIR="$2"; shift 2 ;;
-        --mapper-branch) SCRIPT2_MAPPER_BRANCH="$2"; shift 2 ;;
-        -c|--count) SCRIPT2_COUNT="$2"; shift 2 ;;
-        -s|--seed) SCRIPT2_SEED="$2"; shift 2 ;;
-        -d|--different) SCRIPT2_DIFFERENT="$2"; shift 2 ;;
+        # -b|--base-dir)      BASE_DIR="$2"; shift 2 ;;
+        --rna-mode)             RNA_MODE="$2"; shift 2 ;;
+        --dna-mode)             DNA_MODE="$2"; shift 2 ;;
+        --contacts-mode)    CONTACTS_MODE="$2"; shift 2 ;;
         -h|--help) usage ;;
         *) echo "Unknown argument: $1"; usage ;;
     esac
 done
 
-if [[ -z "$BASE_DIR" ]]; then
-    echo "Error: --base-dir is required."
+
+if [[ -z "$RNA_MODE" ]]; then
+    echo "Error: --RNA_MODE is required."
     usage
 fi
 
+if [[ -z "$DNA_MODE" ]]; then
+    echo "Error: --DNA_MODE is required."
+    usage
+fi
+
+# RAW_CONTACTS_DIR="$WORK_DIR/raw_contacts/${MODE,,}"
+RAW_CONTACTS_DIR="$WORK_DIR/raw_contacts"
+# BASE_DIR="$WORK_DIR/mapping/${MODE,,}"
+BASE_RNA_DIR="$WORK_DIR/mapping/${RNA_MODE,,}"
+BASE_DNA_DIR="$WORK_DIR/mapping/${DNA_MODE,,}"
+
+LOG_FILE="wrapper_rna_${RNA_MODE,,}__dna_${DNA_MODE,,}.log"
 ###############################################
 # Validate raw contacts directory
 ###############################################
@@ -83,46 +107,16 @@ if [[ -n "$RAW_CONTACTS_DIR" ]]; then
     fi
 fi
 
+LOG_FILE="$RAW_CONTACTS_DIR/$LOG_FILE"
 echo "Logging to $LOG_FILE"
 exec > >(tee -a "$LOG_FILE") 2>&1
 
 ###############################################
-# Step 1: Sort BAM/SAM files
-###############################################
-./sam2bam_and_sort.sh "$BASE_DIR"
-
-###############################################
 # Step 2: Generate contacts
 ###############################################
-if [[ "$SAMPLE_CONTACTS" -eq 1 ]]; then
-    ./make_contacts_sample.sh --mode "$CONTACTS_MODE" --pairs "$CONTACTS_PAIRS_FILE"
-else
-    SCRIPT2_ARGS=(--base-dir "$BASE_DIR" -m "$CONTACTS_MODE" --mapper-branch "$SCRIPT2_MAPPER_BRANCH")
-    if [[ "$SCRIPT2_COUNT" -gt 0 ]]; then
-        SCRIPT2_ARGS+=(-m random -c "$SCRIPT2_COUNT" -s "$SCRIPT2_SEED" -d "$SCRIPT2_DIFFERENT")
-    fi
-    ./make_contacts_universal_notsample.sh "${SCRIPT2_ARGS[@]}"
-fi
+SCRIPT2_ARGS=(--base-rna-dir "$BASE_RNA_DIR" --base-dna-dir "$BASE_DNA_DIR" --raw-contacts-dir "$RAW_CONTACTS_DIR" -k "$RNA_MODE" -kk "$DNA_MODE" -m "$CONTACTS_MODE" --contact_script "$CONTACT_SCRIPT")
+./make_contacts_universal_notsample.sh "${SCRIPT2_ARGS[@]}"
 
-###############################################
-# Step 2b: Move raw contacts
-###############################################
-if [[ -n "$RAW_CONTACTS_DIR" ]]; then
-    mv ./*.tab.rc "$RAW_CONTACTS_DIR"/ 2>/dev/null || true
-fi
-
-###############################################
-# Step 3: Filter contacts
-###############################################
-if [[ -n "$RAW_CONTACTS_DIR" ]]; then
-    FILTER_INPUT_DIR="$RAW_CONTACTS_DIR"
-fi
-
-FILTER_OUTPUT_DIR="${FILTER_OUTPUT_DIR:-filtered_contacts}"
+FILTER_OUTPUT_DIR="$WORK_DIR/filtered_contacts"
 mkdir -p "$FILTER_OUTPUT_DIR"
-
-if [[ -n "$FILTER_INPUT_DIR" ]]; then
-    ./calculate_CIAGAR_filter.sh -i "$FILTER_INPUT_DIR" -o "$FILTER_OUTPUT_DIR" -r "$FILTER_RESULTS_FILE"
-fi
-
-
+./calculate_CIAGAR_filter.sh -i "$RAW_CONTACTS_DIR" -o "$FILTER_OUTPUT_DIR" -s "$EDIT_DISTANCE_CIGAR_FILTER_SCRIPT" -k "$RNA_MODE" -kk "$DNA_MODE"

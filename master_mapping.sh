@@ -1,7 +1,11 @@
-et -euo pipefail
+set -euo pipefail
 
 ##############################################
 # Usage message
+# ./master_mapping.sh /mnt/scratch/rnachrom/ryabykh2018/grid_pig/sus_scrofa_mapper_parameters_screening/mappers.conf --mode bwa -t 4
+# ./master_mapping.sh /mnt/scratch/rnachrom/ryabykh2018/grid_pig/sus_scrofa_mapper_parameters_screening/mappers.conf --mode hisat2 -t 4
+# ./master_mapping.sh /mnt/scratch/rnachrom/ryabykh2018/grid_pig/sus_scrofa_mapper_parameters_screening/mappers.conf --mode star -t 4
+# ./master_mapping.sh /mnt/scratch/rnachrom/ryabykh2018/grid_pig/sus_scrofa_mapper_parameters_screening/mappers.conf --mode bowtie2 -t 4
 ##############################################
 usage() {
         cat <<EOF
@@ -50,7 +54,7 @@ MODE=""
 PART=""
 SEED=""
 CONFIG_LOG=""
-THREADS=""
+
 T_ARG=""
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
@@ -64,7 +68,6 @@ while [[ $# -gt 0 ]]; do
         --part)        PART="$2"; shift 2 ;;
         --seed)        SEED="$2"; shift 2 ;;
         --config-log)  CONFIG_LOG="$2"; shift 2 ;;
-        --threads)     THREADS="$2"; shift 2 ;;
         -t)            T_ARG="$2"; shift 2 ;;
         -h|--help)     usage ;;
         *) echo "Unknown argument: $1"; usage ;;
@@ -102,38 +105,36 @@ case "$MODE" in
 # BOWTIE2 (Python randomized sampling)
 ################################################
     bowtie2)
-        WORKER_SCRIPT="${SCRIPT_DIR}/bowtie2_montecarlo.py"
-
+        WORKER_SCRIPT="${SCRIPT_DIR}/bowtie2_mapping.sh"
+        
         CMD=(
-            python3 "$WORKER_SCRIPT"
-            --fastq-inputs "$FASTQ_INPUTS"
-            --part "$PART"
-            --seed "$SEED"
-            --index "$REFDIR/bowtie2/$OUTPUT_PREFIX"
-            --threads "$THREADS"
-            --bowtie2-bin "$BOWTIE2"
+            bash "$WORKER_SCRIPT"
+            -f "$FASTQ_INPUTS"
+            -r "$REFDIR/bowtie2/$OUTPUT_PREFIX"
+            -t "$T_ARG"
+            -o "$OUTDIR/bowtie2"
+            -b "$BOWTIE2"
+            -n "$N_READS_INPUT"
+            -w "$WORK_DIR"
         )
-
-        [[ -n "$CONFIG_LOG" ]] && CMD+=( --config-log "$CONFIG_LOG" )
         ;;
 
 ################################################
 # STAR (Python randomized sampling)
 ################################################
     star)
-        WORKER_SCRIPT="${SCRIPT_DIR}/star_montecarlo.py"
+        WORKER_SCRIPT="${SCRIPT_DIR}/star_mapping.sh"
 
         CMD=(
-            python3 "$WORKER_SCRIPT"
-            --fastq-inputs "$FASTQ_INPUTS"
-            --part "$PART"
-            --seed "$SEED"
-            --index "$REFDIR/star/$OUTPUT_PREFIX"
-            --threads "$THREADS"
-            --star-bin "$STAR"
+            bash "$WORKER_SCRIPT"
+            -f "$FASTQ_INPUTS"
+            -r "$REFDIR/star"
+            -t "$T_ARG"
+            -o "$OUTDIR/star"
+            -b "$STAR"
+            -n "$N_READS_INPUT"
+            -w "$WORK_DIR"
         )
-
-        [[ -n "$CONFIG_LOG" ]] && CMD+=( --config-log "$CONFIG_LOG" )
         ;;
 
 ################################################
@@ -150,6 +151,8 @@ case "$MODE" in
             -o "$OUTDIR/bwa"
             -m "$IMARGI"
             -b "$BWA_MEM"
+            -n "$N_READS_INPUT"
+            -w "$WORK_DIR"
         )
         ;;
 
@@ -166,6 +169,8 @@ case "$MODE" in
             -t "$T_ARG"
             -o "$OUTDIR/hisat2"
             -b "$HISAT2"
+            -n "$N_READS_INPUT"
+            -w "$WORK_DIR"
         )
         ;;
 
