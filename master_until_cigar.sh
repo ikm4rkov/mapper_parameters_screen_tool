@@ -120,3 +120,5 @@ SCRIPT2_ARGS=(--base-rna-dir "$BASE_RNA_DIR" --base-dna-dir "$BASE_DNA_DIR" --ra
 FILTER_OUTPUT_DIR="$WORK_DIR/filtered_contacts"
 mkdir -p "$FILTER_OUTPUT_DIR"
 ./calculate_CIAGAR_filter.sh -i "$RAW_CONTACTS_DIR" -o "$FILTER_OUTPUT_DIR" -s "$EDIT_DISTANCE_CIGAR_FILTER_SCRIPT" -k "$RNA_MODE" -kk "$DNA_MODE"
+#Reports
+python3 scatterplots.py -r "$RAW_CONTACTS_DIR" -i "$FILTER_OUTPUT_DIR" -d reports -o rna_${RNA_MODE}_dna_${DNA_MODE} --rna $RNA_MODE --dna $DNA_MODE 
