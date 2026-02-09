@@ -2,6 +2,7 @@
 !.gitignore
 !mappers.conf
 !README.md
+!Dockerfile
 !requirements.txt
 !bowtie2_montecarlo.py
 !bwa_mapping.sh
