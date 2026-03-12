@@ -103,23 +103,22 @@ HISAT2_EXTRACT_SPLICE="${HISAT2_EXTRACT_SPLICE:-$HISAT2_DIR/hisat2_extract_splic
 HISAT2_BUILD_CMD="${HISAT2_BUILD:-$HISAT2_DIR/hisat2-build}"
 
 # create exon map
-"$HISAT2_EXTRACT_EXONS" "$gtf_file" > ${GENOMES_DIR}/hisat2/exons.txt
+"$HISAT2_EXTRACT_EXONS" "$gtf_file" > $GENOMES_DIR/hisat2/exons.txt
 if [ $? -ne 0 ]; then
     echo "Error: hisat2_extract_exons.py failed."
     exit 1
 fi
 
 # create splice sites map
-"$HISAT2_EXTRACT_SPLICE" "$gtf_file" > ${GENOMES_DIR}/hisat2/splice_sites.txt
+"$HISAT2_EXTRACT_SPLICE" "$gtf_file" > $GENOMES_DIR/hisat2/splice_sites.txt
 if [ $? -ne 0 ]; then
     echo "Error: hisat2_extract_splice_sites.py failed."
     exit 1
 fi
 
 # Build HISAT2 index (place files into work_dir)
-echo "$HISAT2_BUILD_CMD" -p "$threads" --ss ${GENOMES_DIR}/hisat2/splice_sites.txt --exon ${GENOMES_DIR}/hisat2/exons.txt "$genome_file" "${GENOMES_DIR}/hisat2/${output_prefix}"
-"$HISAT2_BUILD_CMD" -p "$threads" --ss ${GENOMES_DIR}/hisat2/splice_sites.txt --exon ${GENOMES_DIR}/hisat2/exons.txt "$genome_file" "${GENOMES_DIR}/hisat2/${output_prefix}"
-# rm exons.txt splice_sites.txt # Clean up temporary files
+"$HISAT2_BUILD_CMD" -p "$threads" --ss $GENOMES_DIR/hisat2/splice_sites.txt --exon $GENOMES_DIR/hisat2/exons.txt "$genome_file" "$GENOMES_DIR/hisat2/$output_prefix"
+rm exons.txt splice_sites.txt # Clean up temporary files
 if [ $? -ne 0 ]; then
   echo "Error: HISAT2 index build failed."
   exit 1

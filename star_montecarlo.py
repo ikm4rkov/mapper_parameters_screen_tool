@@ -17,20 +17,20 @@ GENOME_DIR = "index"
 
 # Parameter space
 PARAMS = {
-    "--scoreGap": [-10, -5, 0, 5, 10],
-    "--scoreGapNoncan": [-16, -12, -8, -4, 0],
-    "--scoreGapGCAG": [-8, -6, -4, -2, 0],
-    "--scoreGapATAC": [-16, -12, -8, -4, 0],
-    "--scoreDelOpen": [-4, -3, -2, -1, 0],
-    "--scoreInsOpen": [-4, -3, -2, -1, 0],
-    "--scoreStitchSJshift": [-4, -2, 1, 3, 5],
-    "--seedSearchStartLmax": [25, 37.5, 50, 62.5, 75],
-    "--seedSearchStartLmaxOverLread": [0.5, 0.75, 1.0, 1.25, 1.5],
-    "--seedPerReadNmax": [500, 750, 1000, 1250, 1500],
-    "--seedPerWindowNmax": [25, 37.5, 50, 62.5, 75],
-    "--seedSplitMin": [6, 9, 12, 15, 18],
-    "--winAnchorDistNbins": [4, 6, 9, 11, 13],
-    "--outFilterScoreMin": [-5, -2.5, 0, 2.5, 5]
+    # "--scoreGap": [-10, -5, 0, 5, 10],
+    # "--scoreGapNoncan": [-16, -12, -8, -4, 0],
+    # "--scoreGapGCAG": [-8, -6, -4, -2, 0],
+    # "--scoreGapATAC": [-16, -12, -8, -4, 0],
+    # "--scoreDelOpen": [-4, -3, -2, -1, 0],
+    # "--scoreInsOpen": [-4, -3, -2, -1, 0],
+    # "--scoreStitchSJshift": [-4, -2, 1, 3, 5],
+    # "--seedSearchStartLmax": [25, 37.5, 50, 62.5, 75],
+    # "--seedSearchStartLmaxOverLread": [0.5, 0.75, 1.0, 1.25, 1.5],
+    # "--seedPerReadNmax": [500, 750, 1000, 1250, 1500],
+    # "--seedPerWindowNmax": [25, 37.5, 50, 62.5, 75],
+    # "--seedSplitMin": [6, 9, 12, 15, 18],
+    # "--winAnchorDistNbins": [4, 6, 9, 11, 13],
+    "--outFilterScoreMin": [-5, 0, 5] #[-5, -2.5, 0, 2.5, 5]
 }
 
 # ============================================================
@@ -54,7 +54,7 @@ def make_dirname(cfg: dict) -> str:
     return "_".join(parts)
 
 
-def run_star(run_id, config, args):
+def run_star(run_id, config, args, STAR_EXEC):
     # Output directory name composed of parameters
     dir_name = make_dirname(config)
     out_dir = Path(args.output_root) / dir_name
@@ -71,13 +71,13 @@ def run_star(run_id, config, args):
     # base STAR command
     cmd = [
         STAR_EXEC,
-        "--runThreadN", str(args.star_threads),
+        "--runThreadN", str(args.threads),
         "--genomeDir", GENOME_DIR,
         "--readFilesIn", args.input,
         "--outFileNamePrefix", tmp_prefix,
         "--outSAMtype", "SAM",
         "--outSAMunmapped", "Within",
-        "--outSAMattributes", "NH", "HI", "AS", "nM", "NM", "MD", "jM", "jI", "XS", "MC",
+        "--outSAMattributes", "NH", "NM",
     ]
 
     # add sampled parameters
@@ -122,8 +122,8 @@ def main():
     parser.add_argument("--seed", type=int)
     parser.add_argument("--config-log", default="generated_parameters.json")
     parser.add_argument("--index", help="STAR genome index directory")
+    parser.add_argument("--star-bin")
     parser.add_argument("--threads", type=int)
-    parser.add_argument("--star-threads", type=int)
     parser.add_argument("--runs", type=int, default=100)
     parser.add_argument("--margi", type=int, default=0)
     parser.add_argument("--output-root", type=str, default=".",
@@ -134,13 +134,11 @@ def main():
     # apply options
     if args.index:
         GENOME_DIR = args.index
+    if args.star_bin:
+        global STAR_EXEC
+        STAR_EXEC = args.star_bin
     if args.threads:
         THREADS = args.threads
-    if args.star_threads:
-        if args.star_threads < 1:
-            parser.error("--star-threads must be >=1")
-        STAR_THREADS = args.star_threads
-    args.star_threads = STAR_THREADS
 
     # random seed
     if args.seed:
@@ -155,9 +153,9 @@ def main():
         json.dump(configs, jf, indent=4)
 
     # parallel execution
-    with ThreadPoolExecutor(max_workers=THREADS) as exe:
+    with ThreadPoolExecutor(max_workers=1) as exe:
         futures = [
-            exe.submit(run_star, i, cfg, args)
+            exe.submit(run_star, i, cfg, args, STAR_EXEC)
             for i, cfg in enumerate(configs)
         ]
 

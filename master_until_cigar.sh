@@ -2,25 +2,16 @@
 set -euo pipefail
 
 ###############################################
-# Default configuration
-###############################################
-
-BASE_DIR=""
-SCRIPT2_MODE_SELECTION="all"
-CONTACTS_MODE="all"
-FILTER_OUTPUT_DIR=""
-
-###############################################
 # Examples:
-# ./master_until_cigar.sh /mnt/scratch/rnachrom/ryabykh2018/grid_pig/sus_scrofa_mapper_parameters_screening/mappers.conf --contacts-mode all --rna-mode BWA --dna-mode BWA
-# ./master_until_cigar.sh /mnt/scratch/rnachrom/ryabykh2018/grid_pig/sus_scrofa_mapper_parameters_screening/mappers.conf --contacts-mode all --rna-mode STAR --dna-mode STAR
-# ./master_until_cigar.sh /mnt/scratch/rnachrom/ryabykh2018/grid_pig/sus_scrofa_mapper_parameters_screening/mappers.conf --contacts-mode all --rna-mode HISAT2 --dna-mode HISAT2
-# ./master_until_cigar.sh /mnt/scratch/rnachrom/ryabykh2018/grid_pig/sus_scrofa_mapper_parameters_screening/mappers.conf --contacts-mode all --rna-mode BOWTIE2 --dna-mode BOWTIE2
+# ./master_until_cigar.sh /mnt/scratch/rnachrom/ryabykh2018/grid_pig/sus_scrofa_mapper_parameters_screening/mappers.conf --rna-mode BWA --dna-mode BWA
+# ./master_until_cigar.sh /mnt/scratch/rnachrom/ryabykh2018/grid_pig/sus_scrofa_mapper_parameters_screening/mappers.conf --rna-mode STAR --dna-mode STAR
+# ./master_until_cigar.sh /mnt/scratch/rnachrom/ryabykh2018/grid_pig/sus_scrofa_mapper_parameters_screening/mappers.conf --rna-mode HISAT2 --dna-mode HISAT2
+# ./master_until_cigar.sh /mnt/scratch/rnachrom/ryabykh2018/grid_pig/sus_scrofa_mapper_parameters_screening/mappers.conf --rna-mode BOWTIE2 --dna-mode BOWTIE2
 #
-# ./master_until_cigar.sh /mnt/scratch/rnachrom/ryabykh2018/grid_pig/sus_scrofa_mapper_parameters_screening/mappers.conf --contacts-mode all --rna-mode STAR --dna-mode BWA
-# ./master_until_cigar.sh /mnt/scratch/rnachrom/ryabykh2018/grid_pig/sus_scrofa_mapper_parameters_screening/mappers.conf --contacts-mode all --rna-mode HISAT2 --dna-mode BWA
-# ./master_until_cigar.sh /mnt/scratch/rnachrom/ryabykh2018/grid_pig/sus_scrofa_mapper_parameters_screening/mappers.conf --contacts-mode all --rna-mode HISAT2 --dna-mode BOWTIE2
-# ./master_until_cigar.sh /mnt/scratch/rnachrom/ryabykh2018/grid_pig/sus_scrofa_mapper_parameters_screening/mappers.conf --contacts-mode all --rna-mode STAR --dna-mode BOWTIE2
+# ./master_until_cigar.sh /mnt/scratch/rnachrom/ryabykh2018/grid_pig/sus_scrofa_mapper_parameters_screening/mappers.conf --rna-mode STAR --dna-mode BWA
+# ./master_until_cigar.sh /mnt/scratch/rnachrom/ryabykh2018/grid_pig/sus_scrofa_mapper_parameters_screening/mappers.conf --rna-mode HISAT2 --dna-mode BWA
+# ./master_until_cigar.sh /mnt/scratch/rnachrom/ryabykh2018/grid_pig/sus_scrofa_mapper_parameters_screening/mappers.conf --rna-mode HISAT2 --dna-mode BOWTIE2
+# ./master_until_cigar.sh /mnt/scratch/rnachrom/ryabykh2018/grid_pig/sus_scrofa_mapper_parameters_screening/mappers.conf --rna-mode STAR --dna-mode BOWTIE2
 ###############################################
 
 ###############################################
@@ -65,11 +56,9 @@ source "$config_file"
 ###############################################
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        # -b|--base-dir)      BASE_DIR="$2"; shift 2 ;;
         --rna-mode)             RNA_MODE="$2"; shift 2 ;;
         --dna-mode)             DNA_MODE="$2"; shift 2 ;;
-        --contacts-mode)    CONTACTS_MODE="$2"; shift 2 ;;
-        -h|--help) usage ;;
+        # -h|--help) usage ;;
         *) echo "Unknown argument: $1"; usage ;;
     esac
 done
@@ -114,11 +103,9 @@ exec > >(tee -a "$LOG_FILE") 2>&1
 ###############################################
 # Step 2: Generate contacts
 ###############################################
-SCRIPT2_ARGS=(--base-rna-dir "$BASE_RNA_DIR" --base-dna-dir "$BASE_DNA_DIR" --raw-contacts-dir "$RAW_CONTACTS_DIR" -k "$RNA_MODE" -kk "$DNA_MODE" -m "$CONTACTS_MODE" --contact_script "$CONTACT_SCRIPT")
+SCRIPT2_ARGS=(--base-rna-dir "$BASE_RNA_DIR" --base-dna-dir "$BASE_DNA_DIR" --raw-contacts-dir "$RAW_CONTACTS_DIR" -k "$RNA_MODE" -kk "$DNA_MODE" --contact_script "$CONTACT_SCRIPT")
 ./make_contacts_universal_notsample.sh "${SCRIPT2_ARGS[@]}"
 
 FILTER_OUTPUT_DIR="$WORK_DIR/filtered_contacts"
 mkdir -p "$FILTER_OUTPUT_DIR"
 ./calculate_CIAGAR_filter.sh -i "$RAW_CONTACTS_DIR" -o "$FILTER_OUTPUT_DIR" -s "$EDIT_DISTANCE_CIGAR_FILTER_SCRIPT" -k "$RNA_MODE" -kk "$DNA_MODE"
-#Reports
-python3 scatterplots.py -r "$RAW_CONTACTS_DIR" -i "$FILTER_OUTPUT_DIR" -d reports -o rna_${RNA_MODE}_dna_${DNA_MODE} --rna $RNA_MODE --dna $DNA_MODE 

@@ -31,8 +31,8 @@ fi
 # Ensure output directories exist
 mkdir -p "$output_base"
 
-# Process all *.tab.rc files
-for subdir in "$input_dir"/rna_${RNA_MODE,,}_*__dna_${DNA_MODE,,}_*/; do
+
+for subdir in "$input_dir"/rna_${RNA_MODE,,}*/; do
     # Получаем имя поддиректории
     subdir_name=$(basename "$subdir")
     # Создаём соответствующую папку в output_base
@@ -44,7 +44,26 @@ for subdir in "$input_dir"/rna_${RNA_MODE,,}_*__dna_${DNA_MODE,,}_*/; do
 
     # Run Python script
     python "$EDIT_DISTANCE_CIGAR_FILTER_SCRIPT" \
-        "NM + N_softClipp_bp" 2 2 0 0 200 "no" "explorer" "ATA, not iMARGI" \
+        "NM + N_softClipp_bp" 2 2 0 0 200 "no" "explorer" "RNAseq_SE" \
+        "raw_contacts_Unique_RNA.tab.rc" \
+        "$subdir/" \
+        "$output_dir/"
+
+done
+
+for subdir in "$input_dir"/dna_${DNA_MODE,,}*/; do
+    # Получаем имя поддиректории
+    subdir_name=$(basename "$subdir")
+    # Создаём соответствующую папку в output_base
+    output_dir="$output_base/$subdir_name"
+    mkdir -p "$output_dir"
+    echo "Processing directory: $subdir_name"
+    # # Full path to input file
+    # input_file_path="$input_dir/$file_name"
+
+    # Run Python script
+    python "$EDIT_DISTANCE_CIGAR_FILTER_SCRIPT" \
+        "NM + N_softClipp_bp" 2 2 0 0 200 "no" "explorer" "OTA_SE" \
         "raw_contacts_Unique_RNA.tab.rc" \
         "$subdir/" \
         "$output_dir/"

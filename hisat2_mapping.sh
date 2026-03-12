@@ -22,12 +22,12 @@ usage() {
 # IGNORE_QUALS_VALUES="--ignore-quals" #"--ignore-quals ''"
 # NO_TEMPLATELEN_ADJUSMENT_VALUES="--no-templatelen-adjustment" #"--no-templatelen-adjustment ''"
 # NON_DETERMINISTIC_VALUES="--non-deterministic" #"--non-deterministic ''"
-PEN_NONCANSPLICE_VALUES="12" # "12 1000000"
-MAX_SEEDS_VALUES="200" # "5 200 2000"
-SCORE_MIN_VALUES="L,0,-0.4" # "L,0,-0.4 L,0,-0.2"
-MP_VALUES="6,2 3,1"
-RDG_VALUES="5,3 3,1"
-RFG_VALUES="5,3 3,1"
+PEN_NONCANSPLICE_VALUES="10 12 15"
+MAX_SEEDS_VALUES="5 200"
+SCORE_MIN_VALUES="L,0,-0.2 L,0,-0.4"
+MP_VALUES="4,2 6,2"
+RDG_VALUES="4,3 5,3"
+RFG_VALUES="4,3 5,3"
 
 # ==========================================
 # Argument parsing
@@ -92,8 +92,8 @@ for raw in "${FASTQ_ARRAY[@]}"; do
                    for rfg in $RFG_VALUES; do
 
                     # Build params
-                    # HISAT2_PARAMS="$(echo $ignore_quals | tr -d "'") $(echo $no_templatelen | tr -d "'") $(echo $nondeterministic | tr -d "'") --pen-noncansplice $pen_noncansplice --max-seeds $max_seeds --score-min $score_min --mp $mp --rdg $rdg --rfg $rfg"
-                    HISAT2_PARAMS="--pen-noncansplice $pen_noncansplice --max-seeds $max_seeds --score-min $score_min --mp $mp --rdg $rdg --rfg $rfg"
+                    HISAT2_PARAMS=" --pen-noncansplice $pen_noncansplice --max-seeds $max_seeds --score-min $score_min --mp $mp --rdg $rdg --rfg $rfg"
+                    # HISAT2_PARAMS="--max-seeds $max_seeds"
 
                     # Добавляем --dta-cufflinks для PART==rna, иначе --no-spliced-alignment
                     if [[ "$PART" == "rna" ]]; then

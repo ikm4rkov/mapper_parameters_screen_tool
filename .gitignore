@@ -5,6 +5,7 @@
 !Dockerfile
 !requirements.txt
 !bowtie2_montecarlo.py
+!bowtie2_mapping.sh
 !bwa_mapping.sh
 !hisat2_mapping.sh
 !indexing.sh
@@ -15,6 +16,7 @@
 !calculate_CIAGAR_filter.sh
 !sam2bam_and_sort.sh
 !star_montecarlo.py
+!star_mapping.sh
 !scatterplots.py
 !reports/
 !reports/**
