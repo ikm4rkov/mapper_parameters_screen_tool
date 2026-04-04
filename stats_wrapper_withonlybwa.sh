@@ -52,9 +52,9 @@ OUT_DIR="$WORK_DIR/intersection_stats"
 mkdir -p "$OUT_DIR"
 
 ###############################################
-# Build job list
+# Build job list (ONLY bwa-related pairs)
 ###############################################
-echo "Scanning RNA/DNA directories..."
+echo "Scanning RNA/DNA directories (bwa-filtered)..."
 
 JOBLIST=$(mktemp)
 
@@ -66,7 +66,10 @@ for rna_path in "$RAW_CONTACTS_DIR"/rna_*; do
         [ -d "$dna_path" ] || continue
         dna_dir=$(basename "$dna_path")
 
-        echo "$RAW_CONTACTS_DIR $FILTERED_CONTACTS_DIR $rna_dir $dna_dir" >> "$JOBLIST"
+        # Only include pairs where at least one contains "bwa"
+        if [[ "$rna_dir" == *bwa* || "$dna_dir" == *bwa* ]]; then
+            echo "$RAW_CONTACTS_DIR $FILTERED_CONTACTS_DIR $rna_dir $dna_dir" >> "$JOBLIST"
+        fi
     done
 done
 

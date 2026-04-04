@@ -22,3 +22,6 @@
 !stats_wrapper.sh
 !reports/
 !reports/**
+!contacts_stats.cpp
+!stats_wrapper.sh
+!stats_wrapper_withonlybwa.sh
